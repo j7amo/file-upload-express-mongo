@@ -1,12 +1,15 @@
+const cloudinary = require('cloudinary').v2;
 const { StatusCodes } = require('http-status-codes');
 const path = require('path');
+const fs = require('fs');
 const CustomError = require('../errors/index');
 
 // To upload files from form we use:
 // - native HTML capabilities of uploading a file via form;
 // - 3rd party package by the name "express-fileupload" (it parses a file
 // and attaches it to req.files["form input name"]).
-const uploadProductImage = async (req, res) => {
+// eslint-disable-next-line no-unused-vars
+const uploadProductImageLocal = async (req, res) => {
   // we need to make some additional CHECKS before uploading a file:
   // 1) check if we have a file to upload (there is a chance that user did not
   // select the file before submitting the form)
@@ -41,6 +44,25 @@ const uploadProductImage = async (req, res) => {
     .status(StatusCodes.OK)
     // send back object with the structure that is expected by client
     .json({ image: { src: `/uploads/${productImage.name}` } });
+};
+
+// we want to try something different and switch to Cloudinary(which is a cloud for media)
+const uploadProductImage = async (req, res) => {
+  // we use Cloudinary API
+  const result = await cloudinary.uploader.upload(
+    // get the filePath which is provided by "express-fileupload" package
+    req.files.image.tempFilePath,
+    {
+      use_filename: true,
+      // specify the folder on Cloudinary cloud
+      folder: 'file-upload',
+    },
+  );
+  // remove the file from the TMP folder on our server (we don't need the file
+  // here anymore because it is hosted now on Cloudinary)
+  fs.unlinkSync(req.files.image.tempFilePath);
+
+  res.status(StatusCodes.OK).json({ image: { src: result.secure_url } });
 };
 
 module.exports = uploadProductImage;
